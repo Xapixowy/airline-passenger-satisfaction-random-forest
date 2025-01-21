@@ -11,27 +11,25 @@ class Stepper:
         return current_step
 
 
+def log_execution(title):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            print(f"\t⏳ {title}...")
+            result = func(*args, **kwargs)
+            print(f"\t✅ {title} zakończone.\n")
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 def print_header(step, title):
     print(f"### {step}. {title} ###")
 
 
-def print_action(title, is_success=False):
-    if is_success:
-        print(f"\t✅ {title} zakończone.\n")
-    else:
-        print(f"\t⏳ {title}...")
-
-
 def print_file_saved(file_path):
     print(f"\t📄 Plik został zapisany do: {file_path}")
-
-
-def print_function_execution(title, function, *args, **kwargs):
-    print_action(title)
-    result = function(*args, **kwargs)
-    print_action(title, True)
-
-    return result
 
 
 def generate_filename_with_timestamp(filename):

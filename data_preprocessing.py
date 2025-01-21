@@ -1,8 +1,9 @@
 import os
 from enum import Enum
+from slugify import slugify
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
 
-from helpers import print_file_saved, print_function_execution
+from helpers import log_execution, print_file_saved
 
 
 class ColumnActionType(Enum):
@@ -14,43 +15,61 @@ class ColumnActionType(Enum):
     NORMALIZE = 'normalize_columns'
 
 
-def get_list_of_columns_with_action(action_type, columns):
-    return [col for col in columns if action_type in columns[col]]
+class DataPreprocessing:
+    def __init__(self, name, dataframe, column_actions):
+        self.name = name
+        self.dataframe = dataframe
+        self.column_actions = column_actions
+
+    @log_execution("Usuwanie niepotrzebnych kolumn")
+    def delete_unnecessary_columns(self):
+        columns = self.__get_list_of_columns_with_action(ColumnActionType.DELETE_UNNECESSARY)
+        self.dataframe = self.dataframe.drop(columns, axis=1)
+
+    @log_execution("Uzupełnianie brakujących wartości")
+    def fill_missing_values(self, fill_value=None):
+        columns = self.__get_list_of_columns_with_action(ColumnActionType.FILL_MISSING)
+        for col in columns:
+            column_fill_value = self.dataframe[col].median() if fill_value is None else fill_value
+            self.dataframe[col] = self.dataframe[col].fillna(column_fill_value)
+
+    @log_execution("Konwertowanie kolumn kategorycznych")
+    def convert_categorical_columns(self):
+        columns = self.__get_list_of_columns_with_action(ColumnActionType.CONVERT_CATEGORICAL)
+        label_encoders = {col: LabelEncoder() for col in columns}
+        for col in columns:
+            self.dataframe[col] = label_encoders[col].fit_transform(self.dataframe[col])
+
+    @log_execution("Standardyzacja kolumn")
+    def standardize_columns(self):
+        columns = self.__get_list_of_columns_with_action(ColumnActionType.STANDARDIZE)
+        scalers = {col: StandardScaler() for col in columns}
+        for col in columns:
+            self.dataframe[col] = scalers[col].fit_transform(self.dataframe[[col]])
+
+    @log_execution("Normalizacja kolumn")
+    def normalize_columns(self):
+        columns = self.__get_list_of_columns_with_action(ColumnActionType.NORMALIZE)
+        scalers = {col: MinMaxScaler() for col in columns}
+        for col in columns:
+            self.dataframe[col] = scalers[col].fit_transform(self.dataframe[[col]])
+
+    @log_execution("Zaokrąglanie wartości")
+    def round_values(self, precision=2):
+        self.dataframe[:] = self.dataframe.round(precision)
+
+    @log_execution("Eksportowanie zbioru danych do CSV")
+    def export_dataframe_to_csv(self, save_path):
+        os.makedirs(save_path, exist_ok=True)
+        file_path = os.path.join(save_path, f"{slugify(self.name)}_preprocessed.csv")
+        self.dataframe.to_csv(file_path, index=False)
+        print_file_saved(file_path)
+
+    def __get_list_of_columns_with_action(self, action_type):
+        return [col for col in self.column_actions if action_type in self.column_actions[col]]
 
 
-def delete_unnecessary_columns(df, columns):
-    df.drop(columns, axis=1, inplace=True)
-
-
-def fill_missing_values(df, columns):
-    columns_dict = {col: 0 for col in columns}
-    df.fillna(columns_dict, inplace=True)
-
-
-def convert_categorical_columns(df, columns):
-    label_encoders = {col: LabelEncoder() for col in columns}
-    for col in columns:
-        df[col] = label_encoders[col].fit_transform(df[col])
-
-
-def standardize_columns(df, columns):
-    scaler = StandardScaler()
-    df[columns] = scaler.fit_transform(df[columns])
-
-
-def normalize_columns(df, columns):
-    scaler = MinMaxScaler()
-    df[columns] = scaler.fit_transform(df[columns])
-
-
-def export_dataframe_to_csv(df, filename, output_directory_path):
-    os.makedirs(output_directory_path, exist_ok=True)
-    file_path = os.path.join(output_directory_path, f"{filename.lower()}_preprocessed.csv")
-    df.to_csv(file_path, index=False)
-    print_file_saved(file_path)
-
-
-def data_preprocessing_pipeline(train_df, test_df, output_data_directory_path):
+def data_preprocessing_pipeline(train_df, test_df, data_directory_path):
     df_cols_actions = {
         'Unnamed: 0': [ColumnActionType.DELETE_UNNECESSARY],
         'id': [ColumnActionType.DELETE_UNNECESSARY],
@@ -79,12 +98,6 @@ def data_preprocessing_pipeline(train_df, test_df, output_data_directory_path):
         'satisfaction': [ColumnActionType.CONVERT_CATEGORICAL]
     }
 
-    unnecessary_cols = get_list_of_columns_with_action(ColumnActionType.DELETE_UNNECESSARY, df_cols_actions)
-    missing_cols = get_list_of_columns_with_action(ColumnActionType.FILL_MISSING, df_cols_actions)
-    categorical_cols = get_list_of_columns_with_action(ColumnActionType.CONVERT_CATEGORICAL, df_cols_actions)
-    standardize_cols = get_list_of_columns_with_action(ColumnActionType.STANDARDIZE, df_cols_actions)
-    normalize_cols = get_list_of_columns_with_action(ColumnActionType.NORMALIZE, df_cols_actions)
-
     datasets = [
         {
             'name': 'Train',
@@ -97,19 +110,14 @@ def data_preprocessing_pipeline(train_df, test_df, output_data_directory_path):
     ]
 
     for dataset in datasets:
-        print_function_execution(f"Usuwanie zbędnych kolumn w zbiorze {dataset['name']}",
-                                 delete_unnecessary_columns, dataset['dataframe'], unnecessary_cols)
-        print_function_execution(f"Uzupełnianie brakujących danych w zbiorze {dataset['name']}",
-                                 fill_missing_values, dataset['dataframe'], missing_cols)
-        print_function_execution(f"Konwersja kategorycznych kolumn w zbiorze {dataset['name']}",
-                                 convert_categorical_columns, dataset['dataframe'], categorical_cols)
-        print_function_execution(f"Standardyzacja kolumn w zbiorze {dataset['name']}",
-                                 standardize_columns, dataset['dataframe'], standardize_cols)
-        print_function_execution(f"Normalizacja kolumn w zbiorze {dataset['name']}",
-                                 normalize_columns, dataset['dataframe'], normalize_cols)
-        dataset['dataframe'][:] = dataset['dataframe'].round(2)
-        print_function_execution(f"Eksportowanie danych ze zbioru {dataset['name']}",
-                                 export_dataframe_to_csv, dataset['dataframe'], dataset['name'],
-                                 output_data_directory_path)
+        data_preprocessing = DataPreprocessing(dataset['name'], dataset['dataframe'], df_cols_actions)
+        data_preprocessing.delete_unnecessary_columns()
+        data_preprocessing.fill_missing_values(0)
+        data_preprocessing.convert_categorical_columns()
+        data_preprocessing.standardize_columns()
+        data_preprocessing.normalize_columns()
+        data_preprocessing.round_values()
+        data_preprocessing.export_dataframe_to_csv(data_directory_path)
+        dataset['dataframe'] = data_preprocessing.dataframe
 
-    return train_df, test_df
+    return map(lambda dataset: dataset['dataframe'], datasets)
