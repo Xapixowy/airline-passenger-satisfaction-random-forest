@@ -3,10 +3,9 @@ import numpy as np
 import joblib
 import os
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 from slugify import slugify
 from abc import abstractmethod
+from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from tabulate import tabulate
@@ -242,12 +241,35 @@ class GradientBoosting(MachineLearningAlgorithm):
         self._model = model
 
 
+from sklearn.neural_network import MLPClassifier
+
+
+class MLPModel(MachineLearningAlgorithm):
+    def __init__(self, train_df, test_df, label_columns):
+        super().__init__(train_df, test_df, label_columns, 'Multi-Layer Perceptron')
+
+    @log_execution("Trenowanie modelu", measure_time=True)
+    def train(self, max_iter=200, seed=2137, hidden_layer_sizes=(100,), activation='relu', solver='adam',
+              learning_rate='constant', ):
+        model = MLPClassifier(
+            hidden_layer_sizes=hidden_layer_sizes,
+            activation=activation,
+            solver=solver,
+            learning_rate=learning_rate,
+            max_iter=max_iter,
+            random_state=seed
+        )
+        model.fit(self._train_features, self._train_labels)
+        self._model = model
+
+
 def model_training_pipeline(results_path, summaries_path, plots_path, train_df, test_df, seed):
     label_columns = ['satisfaction']
 
     random_forest_estimators = 200
     logistic_regression_iterations = 1000
     gradient_boosting_estimators = 300
+    mlp_iterations = 500
 
     random_forest = RandomForest(train_df, test_df, label_columns)
     random_forest.train(estimators=random_forest_estimators, seed=seed)
@@ -269,3 +291,10 @@ def model_training_pipeline(results_path, summaries_path, plots_path, train_df, 
     gradient_boosting.export_evaluation(summaries_path)
     gradient_boosting.export_confusion_matrix_plot(plots_path)
     gradient_boosting.export_model(results_path)
+
+    mlp = MLPModel(train_df, test_df, label_columns)
+    mlp.train(max_iter=mlp_iterations, seed=seed)
+    mlp.evaluate()
+    mlp.export_evaluation(summaries_path)
+    mlp.export_confusion_matrix_plot(plots_path)
+    mlp.export_model(results_path)
