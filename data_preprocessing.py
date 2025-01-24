@@ -112,7 +112,7 @@ def data_preprocessing_pipeline(train_df, test_df, data_directory_path):
     for dataset in datasets:
         data_preprocessing = DataPreprocessing(dataset['name'], dataset['dataframe'], df_cols_actions)
         data_preprocessing.delete_unnecessary_columns()
-        data_preprocessing.fill_missing_values(0)
+        data_preprocessing.fill_missing_values()
         data_preprocessing.convert_categorical_columns()
         data_preprocessing.standardize_columns()
         data_preprocessing.normalize_columns()

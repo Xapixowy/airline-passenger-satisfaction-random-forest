@@ -26,12 +26,10 @@ def load_environment_variables():
         "results_directory": os.getenv('RESULTS_DIRECTORY'),
         "train_data_file": os.getenv('TRAIN_DATA_FILE'),
         "test_data_file": os.getenv('TEST_DATA_FILE'),
-        "random_forest_trees": os.getenv('RANDOM_FOREST_TREES'),
-        "random_forest_seed": os.getenv('RANDOM_FOREST_SEED')
+        "seed": os.getenv('SEED')
     }
     check_environment_variables([env_variables[key] for key in env_variables])
-    env_variables['random_forest_trees'] = int(env_variables['random_forest_trees'])
-    env_variables['random_forest_seed'] = int(env_variables['random_forest_seed'])
+    env_variables['seed'] = int(env_variables['seed'])
 
     return env_variables
 
@@ -102,8 +100,7 @@ def main():
                             directories_paths['plots'],
                             preprocessed_train_df,
                             preprocessed_test_df,
-                            env_variables['random_forest_trees'],
-                            env_variables['random_forest_seed'])
+                            env_variables['seed'])
 
     print("### Wszystkie zadania zakończone ###")
 

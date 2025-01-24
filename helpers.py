@@ -1,3 +1,5 @@
+import time
+import functools
 from datetime import datetime
 
 
@@ -11,11 +13,20 @@ class Stepper:
         return current_step
 
 
-def log_execution(title):
+def log_execution(title, measure_time=False):
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             print(f"\t⏳ {title}...")
-            result = func(*args, **kwargs)
+            if measure_time:
+                start_time = time.time()
+                result = func(*args, **kwargs)
+                end_time = time.time()
+                execution_time = end_time - start_time
+                print(f"\t🕒 Czas wykonania: {execution_time:.2f} s")
+            else:
+                result = func(*args, **kwargs)
+
             print(f"\t✅ {title} zakończone.\n")
             return result
 
